@@ -1,4 +1,4 @@
-package project2;
+package project3;
 
 import graphicslib3D.Shape3D;
 import graphicslib3D.Vertex3D;

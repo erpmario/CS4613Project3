@@ -1,4 +1,4 @@
-package project2;
+package project3;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL4;
@@ -27,7 +27,7 @@ import static com.jogamp.opengl.GL4.*;
  *
  * @author Eric Peterson
  */
-public class Project2 extends JFrame implements GLEventListener, KeyListener
+public class Project3 extends JFrame implements GLEventListener, KeyListener
 {
 	/* ********* *
 	 * Constants *
@@ -63,7 +63,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture;
 	private boolean m_drawWorldAxes;
 	
-	public Project2()
+	public Project3()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
@@ -685,7 +685,7 @@ public class Project2 extends JFrame implements GLEventListener, KeyListener
 	
 	public static void main(String[] args)
 	{
-		new Project2();
+		new Project3();
 	}
 	
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height)
