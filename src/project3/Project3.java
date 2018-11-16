@@ -21,7 +21,7 @@ import java.nio.FloatBuffer;
 import static com.jogamp.opengl.GL4.*;
 
 /**
- * Project 2: 3D Modeling and Camera Manipulation
+ * Project 3: Light, Materials, Textures, Shadows, and Skyboxes
  * <p>
  * Based on Program 4.3 - Multiple Models and Program 6.1 - Sphere from Gordon & Clevenger.
  *
