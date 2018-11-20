@@ -1,13 +1,11 @@
 package project3;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.GL4;
-import com.jogamp.opengl.GLAutoDrawable;
-import com.jogamp.opengl.GLContext;
-import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureData;
 import com.jogamp.opengl.util.texture.TextureIO;
 import graphicslib3D.*;
 import graphicslib3D.shape.Sphere;
@@ -16,6 +14,8 @@ import javax.swing.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.File;
+import java.io.IOException;
+import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 
 import static com.jogamp.opengl.GL4.*;
@@ -45,6 +45,9 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	private static final String RED_TEXTURE_FILE = "textures/red.jpg";
 	private static final String GREEN_TEXTURE_FILE = "textures/green.jpg";
 	private static final String BLUE_TEXTURE_FILE = "textures/blue.jpg";
+	//private static final String SKYBOX_TEXTURE_FILE = "textures/alienSkybox.jpg";
+	//private static final String SKYBOX_TEXTURE_FILE = "textures/skybox.png";
+	private static final String SKYBOX_TEXTURE_FILE = "textures/interstellar.jpg";
 	
 	/* **************** *
 	 * Member Variables *
@@ -60,14 +63,14 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	private FPSAnimator m_animator;
 	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
 	private PentagonalPrism m_pentagonalPrism;
-	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture;
+	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture, m_skyboxTexture;
 	private boolean m_drawWorldAxes;
 	
 	public Project3()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[21];
+		m_vbo = new int[23];
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(SPHERE_PRECISION);
 		m_earth = new Sphere(SPHERE_PRECISION);
@@ -78,7 +81,7 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		m_drawWorldAxes = true;
 		
 		// Set up JFrame properties.
-		setTitle("Project 2 - 3D Modeling and Camera Manipulation");
+		setTitle("Project 3 - Lights, Materials, Textures, Shadows, and Skyboxes");
 		setSize(800, 800);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		m_myCanvas = new GLCanvas();
@@ -121,13 +124,38 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		m_mvStack.multMatrix(
 				lookAt(new Point3D(m_cameraX, m_cameraY, m_cameraZ), new Point3D(m_cameraX + m_forwardVector.getX(), m_cameraY + m_forwardVector.getY(), m_cameraZ + m_forwardVector.getZ()),
 						new Vector3D(0.0f, 1.0f, 0.0f)));
-		//m_mvStack.loadMatrix(m_viewMatrix);
-		//m_mvStack.translate(-m_cameraX, -m_cameraY, -m_cameraZ);
 		
 		double amt = (System.currentTimeMillis()) / 1000.0;
 		
 		// Pass the projection matrix to a uniform in the shader.
 		gl.glUniformMatrix4fv(projLoc, 1, false, pMat.getFloatValues(), 0);
+		
+		/* ****** *
+		 * Skybox *
+		 * ****** */
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[21]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[22]);
+		gl.glVertexAttribPointer(1, 2, GL_DOUBLE, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		// activate the skybox texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, m_skyboxTexture);
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW); // cube is CW, but we are viewing its interior
+		gl.glDisable(GL_DEPTH_TEST);
+		gl.glDrawArrays(GL_TRIANGLES, 0, 36); // draw skybox without depth testing
+		gl.glEnable(GL_DEPTH_TEST);
+		// now draw desired scene objects as before
 		
 		/* *** *
 		 * Sun *
@@ -361,7 +389,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		
 		m_mvStack.popMatrix();
 		
-		
 		/* **************** *
 		 * Pentagonal Prism *
 		 * **************** */
@@ -545,6 +572,9 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		m_redTexture = loadTexture(RED_TEXTURE_FILE).getTextureObject();
 		m_greenTexture = loadTexture(GREEN_TEXTURE_FILE).getTextureObject();
 		m_blueTexture = loadTexture(BLUE_TEXTURE_FILE).getTextureObject();
+		m_skyboxTexture = loadTexture(SKYBOX_TEXTURE_FILE).getTextureObject();
+		//m_skyboxTexture = loadCubeMap();
+		gl.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
 	
 	private void setupVertices()
@@ -562,6 +592,9 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		setupSphereVertices(m_earthMoon, 6);
 		setupSphereVertices(m_mars, 9);
 		setupSphereVertices(m_phobos, 12);
+		
+		// Skybox
+		setupSkyboxVertices(21);
 		
 		// World Axes
 		float[] xAxisVertices = {0.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f};
@@ -667,6 +700,93 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glBufferData(GL_ARRAY_BUFFER, normalBuf.limit() * 4, normalBuf, GL_STATIC_DRAW);
 	}
 	
+	private void setupSkyboxVertices(int startingVBOIndex)
+	{
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		
+		float[] cubeVertices =
+				{-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
+						-1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f,
+						-1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, -1.0f,
+						1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f, -1.0f};
+		for(int i = 0; i < cubeVertices.length; ++i)
+		{
+			cubeVertices[i] *= 250.0f;
+		}
+		/*float[] cubeTextureCoord = {.25f, (float) 2 / 3, .25f, (float) 1 / 3, .50f, (float) 1 / 3, // front triangles
+				.50f, (float) 1 / 3, .50f, (float) 2 / 3, .25f, (float) 2 / 3, //
+				.50f, (float) 1 / 3, .75f, (float) 1 / 3, .50f, (float) 2 / 3, // right triangles
+				.75f, (float) 1 / 3, .75f, (float) 2 / 3, .50f, (float) 2 / 3, //
+				.75f, (float) 1 / 3, 1.0f, (float) 1 / 3, .75f, (float) 2 / 3, // back triangles
+				1.0f, (float) 1 / 3, 1.0f, (float) 2 / 3, .75f, (float) 2 / 3, //
+				0.0f, (float) 1 / 3, .25f, (float) 1 / 3, 0.0f, (float) 2 / 3, // left triangles
+				.25f, (float) 1 / 3, .25f, (float) 2 / 3, 0.0f, (float) 2 / 3, //
+				.25f, 0.0f, .50f, 0.0f, .50f, (float) 1 / 3, // bottom triangles
+				.50f, (float) 1 / 3, .25f, (float) 1 / 3, .25f, 0.0f, //
+				.25f, (float) 2 / 3, .50f, (float) 2 / 3, .50f, 1.0f, // top triangles
+				.50f, 1.0f, .25f, 1.0f, .25f, (float) 2 / 3  //
+		};*/
+		double[] cubeTextureCoord = {.25, (double) 2 / 3, .25, (double) 1 / 3, .50, (double) 1 / 3, // front triangles
+				.50, (double) 1 / 3, .50, (double) 2 / 3, .25, (double) 2 / 3, //
+				.50, (double) 1 / 3, .75, (double) 1 / 3, .50, (double) 2 / 3, // right triangles
+				.75, (double) 1 / 3, .75, (double) 2 / 3, .50, (double) 2 / 3, //
+				.75, (double) 1 / 3, 1.0, (double) 1 / 3, .75, (double) 2 / 3, // back triangles
+				1.0, (double) 1 / 3, 1.0, (double) 2 / 3, .75, (double) 2 / 3, //
+				0.0, (double) 1 / 3, .25, (double) 1 / 3, 0.0, (double) 2 / 3, // left triangles
+				.25, (double) 1 / 3, .25, (double) 2 / 3, 0.0, (double) 2 / 3, //
+				.25, 0.0, .50, 0.0, .50, (double) 1 / 3, // bottom triangles
+				.50, (double) 1 / 3, .25, (double) 1 / 3, .25, 0.0, //
+				.25, (double) 2 / 3, .50, (double) 2 / 3, .50, 1.0, // top triangles
+				.50, 1.0, .25, 1.0, .25, (double) 2 / 3  //
+		};
+		
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex]);
+		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(cubeVertices);
+		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit() * 4, vertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 1]);
+		DoubleBuffer texBuf = Buffers.newDirectDoubleBuffer(cubeTextureCoord);
+		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit() * 8, texBuf, GL_STATIC_DRAW);
+	}
+	
+	private int loadCubeMap()
+	{
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		GLProfile glp = gl.getGLProfile();
+		Texture tex = new Texture(GL_TEXTURE_CUBE_MAP);
+		try
+		{
+			// get images from image files
+			TextureData tFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/top.jpg"), false, "jpg");
+			TextureData lFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/left.jpg"), false, "jpg");
+			TextureData fFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/front.jpg"), false, "jpg");
+			TextureData rFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/right.jpg"), false, "jpg");
+			TextureData bkFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/back.jpg"), false, "jpg");
+			TextureData btFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/bottom.jpg"), false, "jpg");
+			// attach textures to each face of the active texture
+			tex.updateImage(gl, rFile, GL_TEXTURE_CUBE_MAP_POSITIVE_X);
+			tex.updateImage(gl, lFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_X);
+			tex.updateImage(gl, tFile, GL_TEXTURE_CUBE_MAP_POSITIVE_Y);
+			tex.updateImage(gl, btFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y);
+			tex.updateImage(gl, fFile, GL_TEXTURE_CUBE_MAP_POSITIVE_Z);
+			tex.updateImage(gl, bkFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z);
+		}
+		catch(IOException | GLException e)
+		{
+			e.printStackTrace();
+		}
+		int[] textureIDs = new int[1];
+		gl.glGenTextures(1, textureIDs, 0);
+		int textureID = tex.getTextureObject();
+		// any texture parameter settings go here, such as...
+		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+		return textureID;
+	}
+	
 	private Matrix3D perspective(float fovy, float aspect, float n, float f)
 	{
 		float q = 1.0f / ((float) Math.tan(Math.toRadians(0.5f * fovy)));
@@ -719,7 +839,7 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		return vfprogram;
 	}
 	
-	public Texture loadTexture(String textureFileName)
+	private Texture loadTexture(String textureFileName)
 	{
 		Texture tex = null;
 		try
