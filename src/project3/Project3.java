@@ -48,6 +48,8 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	//private static final String SKYBOX_TEXTURE_FILE = "textures/alienSkybox.jpg";
 	//private static final String SKYBOX_TEXTURE_FILE = "textures/skybox.png";
 	private static final String SKYBOX_TEXTURE_FILE = "textures/interstellar.jpg";
+	private static final String SHUTTLE_TEXTURE_FILE = "textures/shuttle.jpg";
+	private static final String SHUTTLE_OBJ_FILE = "shuttle.obj";
 	
 	/* **************** *
 	 * Member Variables *
@@ -63,14 +65,15 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	private FPSAnimator m_animator;
 	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
 	private PentagonalPrism m_pentagonalPrism;
-	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture, m_skyboxTexture;
+	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture, m_skyboxTexture, m_shuttleTexture;
 	private boolean m_drawWorldAxes;
+	private ImportedModel m_shuttle;
 	
 	public Project3()
 	{
 		// Initialize default member variable values.
 		m_vao = new int[1];
-		m_vbo = new int[23];
+		m_vbo = new int[26];
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(SPHERE_PRECISION);
 		m_earth = new Sphere(SPHERE_PRECISION);
@@ -200,6 +203,53 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		// Draw the object.
 		int numVerts = m_sun.getIndices().length;
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
+		
+		/* ******* *
+		 * Shuttle *
+		 * ******* */
+		
+		// Apply transformations to the model-view matrix.
+		m_mvStack.pushMatrix();
+		m_mvStack.translate(Math.sin(amt * 0.75) * 10.0f, Math.cos(amt * 0.75) * 10.0f, 0.0f);
+		m_mvStack.pushMatrix();
+		m_mvStack.rotate((System.currentTimeMillis()) % 360, 1.0, 1.0, 1.0);
+		//m_mvStack.scale(0.75, 0.75, 0.75);
+		
+		// Pass the model-view matrix to a uniform in the shader.
+		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
+		
+		// Bind the vertex buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[23]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		// Bind the texture buffer to a vertex attribute.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[24]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		
+		// Set up texture.
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, m_shuttleTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
+		{
+			float max[] = new float[1];
+			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
+			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
+		}
+		
+		// Enable depth test and face-culling.
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		
+		// Draw the object.
+		numVerts = m_shuttle.getVertices().length;
+		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
+		m_mvStack.popMatrix();
 		m_mvStack.popMatrix();
 		
 		/* ***** *
@@ -545,6 +595,9 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		m_renderingProgram = createShaderProgram("shaders/vert.shader", "shaders/frag.shader");
+		
+		m_shuttle = new ImportedModel(SHUTTLE_OBJ_FILE);
+		
 		setupVertices();
 		
 		// Camera Position
@@ -574,6 +627,7 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		m_blueTexture = loadTexture(BLUE_TEXTURE_FILE).getTextureObject();
 		m_skyboxTexture = loadTexture(SKYBOX_TEXTURE_FILE).getTextureObject();
 		//m_skyboxTexture = loadCubeMap();
+		m_shuttleTexture = loadTexture(SHUTTLE_TEXTURE_FILE).getTextureObject();
 		gl.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
 	
@@ -593,9 +647,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		setupSphereVertices(m_mars, 9);
 		setupSphereVertices(m_phobos, 12);
 		
-		// Skybox
-		setupSkyboxVertices(21);
-		
 		// World Axes
 		float[] xAxisVertices = {0.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f};
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[15]);
@@ -614,6 +665,54 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		
 		// Pentagonal Prism
 		setupPentagonalPrismVertices(m_pentagonalPrism, 18);
+		
+		// Skybox
+		setupSkyboxVertices(21);
+		
+		// Shuttle
+		setupObjectVertices(m_shuttle, 23);
+	}
+	
+	private void setupObjectVertices(ImportedModel model, int startingVBOIndex)
+	{
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		
+		// Get vertices and number of vertices.
+		Vertex3D[] vertices = model.getVertices();
+		int numVertices = model.getNumVertices();
+		
+		// Create vertex, texture, and normal buffers.
+		float[] pValues = new float[numVertices * 3];
+		float[] tValues = new float[numVertices * 2];
+		float[] nValues = new float[numVertices * 3];
+		
+		// Populate the buffers with the proper values.
+		for(int i = 0; i < numVertices; i++)
+		{
+			pValues[i * 3] = (float) (vertices[i]).getX();
+			pValues[i * 3 + 1] = (float) (vertices[i]).getY();
+			pValues[i * 3 + 2] = (float) (vertices[i]).getZ();
+			tValues[i * 2] = (float) (vertices[i]).getS();
+			tValues[i * 2 + 1] = (float) (vertices[i]).getT();
+			nValues[i * 3] = (float) (vertices[i]).getNormalX();
+			nValues[i * 3 + 1] = (float) (vertices[i]).getNormalY();
+			nValues[i * 3 + 2] = (float) (vertices[i]).getNormalZ();
+		}
+		
+		// Bind vertex buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex]);
+		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit() * 4, vertBuf, GL_STATIC_DRAW);
+		
+		// Bind texture buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 1]);
+		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit() * 4, texBuf, GL_STATIC_DRAW);
+		
+		// Bind normal buffer with a vbo entry.
+		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 2]);
+		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nValues);
+		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit() * 4, norBuf, GL_STATIC_DRAW);
 	}
 	
 	private void setupPentagonalPrismVertices(PentagonalPrism prism, int startingVBOIndex)
