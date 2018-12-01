@@ -1,11 +1,13 @@
 package project3;
 
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.*;
+import com.jogamp.opengl.GL4;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLContext;
+import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.texture.Texture;
-import com.jogamp.opengl.util.texture.TextureData;
 import com.jogamp.opengl.util.texture.TextureIO;
 import graphicslib3D.*;
 import graphicslib3D.light.AmbientLight;
@@ -16,7 +18,6 @@ import javax.swing.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.File;
-import java.io.IOException;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.util.Scanner;
@@ -42,15 +43,9 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	private static final float LIGHT_MOVEMENT_FACTOR = 0.5f;
 	private static final String EARTH_TEXTURE_FILE = "textures/earth.jpg";
 	private static final String SUN_TEXTURE_FILE = "textures/sun.jpg";
-	private static final String EARTH_MOON_TEXTURE_FILE = "textures/moon.jpg";
-	private static final String MARS_TEXTURE_FILE = "textures/mars.jpg";
-	private static final String PHOBOS_TEXTURE_FILE = "textures/phobos.jpg";
-	private static final String ME_TEXTURE_FILE = "textures/me.jpg";
 	private static final String RED_TEXTURE_FILE = "textures/red.jpg";
 	private static final String GREEN_TEXTURE_FILE = "textures/green.jpg";
 	private static final String BLUE_TEXTURE_FILE = "textures/blue.jpg";
-	//private static final String SKYBOX_TEXTURE_FILE = "textures/alienSkybox.jpg";
-	//private static final String SKYBOX_TEXTURE_FILE = "textures/skybox.png";
 	private static final String SKYBOX_TEXTURE_FILE = "textures/interstellar.jpg";
 	private static final String SHUTTLE_TEXTURE_FILE = "textures/shuttle.jpg";
 	private static final String LIGHT_TEXTURE_FILE = "textures/light.jpg";
@@ -70,10 +65,8 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 	private Vector3D m_forwardVector;
 	private float m_sunLocX, m_sunLocY, m_sunLocZ;
 	private FPSAnimator m_animator;
-	private Sphere m_sun, m_earth, m_earthMoon, m_mars, m_phobos;
-	//private PentagonalPrism m_pentagonalPrism;
-	private int m_sunTexture, m_earthTexture, m_earthMoonTexture, m_marsTexture, m_phobosTexture, m_meTexture, m_redTexture, m_greenTexture, m_blueTexture, m_skyboxTexture, m_shuttleTexture,
-			m_lightTexture;
+	private Sphere m_sun, m_earth;
+	private int m_sunTexture, m_earthTexture, m_redTexture, m_greenTexture, m_blueTexture, m_skyboxTexture, m_shuttleTexture, m_lightTexture;
 	private boolean m_drawWorldAxes;
 	private boolean m_usePositionalLight;
 	private ImportedModel m_shuttle;
@@ -97,10 +90,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		m_mvStack = new MatrixStack(20);
 		m_sun = new Sphere(SPHERE_PRECISION);
 		m_earth = new Sphere(SPHERE_PRECISION);
-		m_earthMoon = new Sphere(SPHERE_PRECISION);
-		m_mars = new Sphere(SPHERE_PRECISION);
-		m_phobos = new Sphere(SPHERE_PRECISION);
-		//m_pentagonalPrism = new PentagonalPrism(1);
 		m_drawWorldAxes = true;
 		m_usePositionalLight = true;
 		m_positionalLight = new PositionalLight();
@@ -867,109 +856,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		m_mvStack.popMatrix();
 		
-		/* ************ *
-		 * Earth's Moon *
-		 * ************ */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(0.0f, Math.sin(amt) * 2.0f, Math.cos(amt) * 2.0f);
-		m_mvStack.rotate(((System.currentTimeMillis()) / 10.0) % 360, 0.0, 0.0, 1.0);
-		m_mvStack.scale(0.25, 0.25, 0.25);
-		
-		// We are drawing from the light's point of view, so we use the light's P and V matrices.
-		m_shadowMVP.setToIdentity();
-		m_shadowMVP.concatenate(m_lightPMatrix);
-		m_shadowMVP.concatenate(m_lightVMatrix);
-		m_shadowMVP.concatenate(m_mvStack.peek());
-		gl.glUniformMatrix4fv(shadowLoc, 1, false, m_shadowMVP.getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[6]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		gl.glDepthFunc(GL_LEQUAL);
-		
-		// Draw the object.
-		numVerts = m_earthMoon.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
-		// Go back to sun reference.
-		m_mvStack.popMatrix();
-		
-		/* **** *
-		 * Mars *
-		 * **** */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(Math.sin(amt * 1.5) * 7.0f, Math.sin(amt * 1.5) * 7.0f, Math.cos(amt * 1.5) * 7.0f);
-		m_mvStack.pushMatrix();
-		m_mvStack.rotate(((System.currentTimeMillis()) / 40.0) % 360, 0.0, 1.0, 0.0);
-		m_mvStack.scale(0.60, 0.60, 0.60);
-		
-		// We are drawing from the light's point of view, so we use the light's P and V matrices.
-		m_shadowMVP.setToIdentity();
-		m_shadowMVP.concatenate(m_lightPMatrix);
-		m_shadowMVP.concatenate(m_lightVMatrix);
-		m_shadowMVP.concatenate(m_mvStack.peek());
-		gl.glUniformMatrix4fv(shadowLoc, 1, false, m_shadowMVP.getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[9]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		gl.glDepthFunc(GL_LEQUAL);
-		
-		// Draw the object.
-		numVerts = m_mars.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
-		/* ****** *
-		 * Phobos *
-		 * ****** */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(Math.cos(amt * 2.0) * 1.5f, Math.sin(amt * 2.0) * 1.5f, Math.cos(amt * 2.0) * 1.5f);
-		m_mvStack.rotate(((System.currentTimeMillis()) / 25.0) % 360, 0.0, 1.0, 1.0);
-		m_mvStack.scale(0.20, 0.20, 0.20);
-		
-		// We are drawing from the light's point of view, so we use the light's P and V matrices.
-		m_shadowMVP.setToIdentity();
-		m_shadowMVP.concatenate(m_lightPMatrix);
-		m_shadowMVP.concatenate(m_lightVMatrix);
-		m_shadowMVP.concatenate(m_mvStack.peek());
-		gl.glUniformMatrix4fv(shadowLoc, 1, false, m_shadowMVP.getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[12]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		gl.glDepthFunc(GL_LEQUAL);
-		
-		// Draw the object.
-		numVerts = m_phobos.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
 		m_mvStack.popMatrix();
 		m_mvStack.popMatrix();
 	}
@@ -1347,214 +1233,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
 		m_mvStack.popMatrix();
 		
-		/* ************ *
-		 * Earth's Moon *
-		 * ************ */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(0.0f, Math.sin(amt) * 2.0f, Math.cos(amt) * 2.0f);
-		m_mvStack.rotate(((System.currentTimeMillis()) / 10.0) % 360, 0.0, 0.0, 1.0);
-		m_mvStack.scale(0.25, 0.25, 0.25);
-		
-		// Pass the model-view and normal matrices to uniforms in the shader.
-		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
-		gl.glUniformMatrix4fv(nLoc, 1, false, m_mvStack.peek().inverse().transpose().getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[6]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Bind the texture buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[7]);
-		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(1);
-		
-		// Bind the normal buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[8]);
-		gl.glVertexAttribPointer(2, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(2);
-		
-		// Set up texture.
-		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, m_earthMoonTexture);
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		gl.glGenerateMipmap(GL_TEXTURE_2D);
-		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
-		{
-			float[] max = new float[1];
-			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
-			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
-		}
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		
-		// Draw the object.
-		numVerts = m_earthMoon.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
-		// Go back to sun reference.
-		m_mvStack.popMatrix();
-		
-		/* **** *
-		 * Mars *
-		 * **** */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(Math.sin(amt * 1.5) * 7.0f, Math.sin(amt * 1.5) * 7.0f, Math.cos(amt * 1.5) * 7.0f);
-		m_mvStack.pushMatrix();
-		m_mvStack.rotate(((System.currentTimeMillis()) / 40.0) % 360, 0.0, 1.0, 0.0);
-		m_mvStack.scale(0.60, 0.60, 0.60);
-		
-		// Pass the model-view and normal matrices to uniforms in the shader.
-		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
-		gl.glUniformMatrix4fv(nLoc, 1, false, m_mvStack.peek().inverse().transpose().getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[9]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Bind the texture buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[10]);
-		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(1);
-		
-		// Bind the normal buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[11]);
-		gl.glVertexAttribPointer(2, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(2);
-		
-		// Set up texture.
-		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, m_marsTexture);
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		gl.glGenerateMipmap(GL_TEXTURE_2D);
-		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
-		{
-			float[] max = new float[1];
-			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
-			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
-		}
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		
-		// Draw the object.
-		numVerts = m_mars.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
-		/* ****** *
-		 * Phobos *
-		 * ****** */
-		
-		// Apply transformations to the model-view matrix.
-		m_mvStack.pushMatrix();
-		m_mvStack.translate(Math.cos(amt * 2.0) * 1.5f, Math.sin(amt * 2.0) * 1.5f, Math.cos(amt * 2.0) * 1.5f);
-		m_mvStack.rotate(((System.currentTimeMillis()) / 25.0) % 360, 0.0, 1.0, 1.0);
-		m_mvStack.scale(0.20, 0.20, 0.20);
-		
-		// Pass the model-view and normal matrices to uniforms in the shader.
-		gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
-		gl.glUniformMatrix4fv(nLoc, 1, false, m_mvStack.peek().inverse().transpose().getFloatValues(), 0);
-		
-		// Bind the vertex buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[12]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		
-		// Bind the texture buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[13]);
-		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(1);
-		
-		// Bind the normal buffer to a vertex attribute.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[14]);
-		gl.glVertexAttribPointer(2, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(2);
-		
-		// Set up texture.
-		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, m_phobosTexture);
-		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		gl.glGenerateMipmap(GL_TEXTURE_2D);
-		if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
-		{
-			float[] max = new float[1];
-			gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
-			gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
-		}
-		
-		// Enable depth test and face-culling.
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		
-		// Draw the object.
-		numVerts = m_phobos.getIndices().length;
-		gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-		m_mvStack.popMatrix();
-		
-		m_mvStack.popMatrix();
-		
-		/* **************** *
-		 * Pentagonal Prism *
-		 * **************** */
-
-				/*// Apply transformations to the model-view matrix.
-				m_mvStack.pushMatrix();
-				m_mvStack.translate(0.0f, Math.sin(amt * 2.0) * 8.0f, Math.cos(amt * 2.0) * 8.0f);
-				m_mvStack.pushMatrix();
-				m_mvStack.rotate(((System.currentTimeMillis()) / 40.0) % 360, 0.0, 1.0, 0.0);
-				m_mvStack.scale(0.50, 0.50, 0.50);
-
-				// Pass the model-view matrix to a uniform in the shader.
-				gl.glUniformMatrix4fv(mvLoc, 1, false, m_mvStack.peek().getFloatValues(), 0);
-
-				// Bind the vertex buffer to a vertex attribute.
-				gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[18]);
-				gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-				gl.glEnableVertexAttribArray(0);
-
-				// Bind the texture buffer to a vertex attribute.
-				gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[19]);
-				gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
-				gl.glEnableVertexAttribArray(1);
-
-				// Set up texture.
-				gl.glActiveTexture(GL_TEXTURE0);
-				gl.glBindTexture(GL_TEXTURE_2D, m_meTexture);
-				gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-				gl.glGenerateMipmap(GL_TEXTURE_2D);
-				if(gl.isExtensionAvailable("GL_EXT_texture_filer_anisotropic"))
-				{
-					float[] max = new float[1];
-					gl.glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, max, 0);
-					gl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max[0]);
-				}
-
-				// Enable depth test and face-culling.
-				gl.glEnable(GL_DEPTH_TEST);
-				gl.glEnable(GL_CULL_FACE);
-				gl.glFrontFace(GL_CW);
-
-				// Draw the object.
-				numVerts = m_pentagonalPrism.getIndices().length;
-				gl.glDrawArrays(GL_TRIANGLES, 0, numVerts);
-				m_mvStack.popMatrix();
-				m_mvStack.popMatrix();
-
-				m_mvStack.popMatrix();*/
-		
 		m_mvStack.popMatrix();
 		m_mvStack.popMatrix();
 	}
@@ -1641,10 +1319,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		// Load textures.
 		m_sunTexture = loadTexture(SUN_TEXTURE_FILE).getTextureObject();
 		m_earthTexture = loadTexture(EARTH_TEXTURE_FILE).getTextureObject();
-		m_earthMoonTexture = loadTexture(EARTH_MOON_TEXTURE_FILE).getTextureObject();
-		m_marsTexture = loadTexture(MARS_TEXTURE_FILE).getTextureObject();
-		m_phobosTexture = loadTexture(PHOBOS_TEXTURE_FILE).getTextureObject();
-		m_meTexture = loadTexture(ME_TEXTURE_FILE).getTextureObject();
 		m_redTexture = loadTexture(RED_TEXTURE_FILE).getTextureObject();
 		m_greenTexture = loadTexture(GREEN_TEXTURE_FILE).getTextureObject();
 		m_blueTexture = loadTexture(BLUE_TEXTURE_FILE).getTextureObject();
@@ -1686,9 +1360,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		// Planets and Moons
 		setupSphereVertices(m_sun, 0);
 		setupSphereVertices(m_earth, 3);
-		setupSphereVertices(m_earthMoon, 6);
-		setupSphereVertices(m_mars, 9);
-		setupSphereVertices(m_phobos, 12);
 		
 		// World Axes
 		float[] xAxisVertices = {0.0f, 0.0f, 0.0f, 5.0f, 0.0f, 0.0f};
@@ -1705,9 +1376,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[17]);
 		FloatBuffer zAxisVertBuf = Buffers.newDirectFloatBuffer(zAxisVertices);
 		gl.glBufferData(GL_ARRAY_BUFFER, zAxisVertBuf.limit() * 4, zAxisVertBuf, GL_STATIC_DRAW);
-		
-		// Pentagonal Prism
-		//setupPentagonalPrismVertices(m_pentagonalPrism, 18);
 		
 		// Skybox
 		setupSkyboxVertices(18);
@@ -1825,48 +1493,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 2]);
 		FloatBuffer normalBuf = Buffers.newDirectFloatBuffer(nValues);
 		gl.glBufferData(GL_ARRAY_BUFFER, normalBuf.limit() * 4, normalBuf, GL_STATIC_DRAW);
-	}
-	
-	private void setupPentagonalPrismVertices(PentagonalPrism prism, int startingVBOIndex)
-	{
-		GL4 gl = (GL4) GLContext.getCurrentGL();
-		
-		// Get vertices and indices.
-		Vertex3D[] vertices = prism.getVertices();
-		int[] indices = prism.getIndices();
-		
-		// Create vertex, texture, and normal buffers.
-		float[] pValues = new float[indices.length * 3];
-		float[] tValues = new float[indices.length * 2];
-		//float[] nValues = new float[indices.length * 3];
-		
-		// Populate the buffers with the proper values.
-		for(int i = 0; i < indices.length; i++)
-		{
-			pValues[i * 3] = (float) (vertices[indices[i]]).getX();
-			pValues[i * 3 + 1] = (float) (vertices[indices[i]]).getY();
-			pValues[i * 3 + 2] = (float) (vertices[indices[i]]).getZ();
-			tValues[i * 2] = (float) (vertices[indices[i]]).getS();
-			tValues[i * 2 + 1] = (float) (vertices[indices[i]]).getT();
-			//nValues[i * 3] = (float) (vertices[indices[i]]).getNormalX();
-			//nValues[i * 3 + 1] = (float) (vertices[indices[i]]).getNormalY();
-			//nValues[i * 3 + 2] = (float) (vertices[indices[i]]).getNormalZ();
-		}
-		
-		// Bind vertex buffer with a vbo entry.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex]);
-		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pValues);
-		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit() * 4, vertBuf, GL_STATIC_DRAW);
-		
-		// Bind texture buffer with a vbo entry.
-		gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 1]);
-		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tValues);
-		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit() * 4, texBuf, GL_STATIC_DRAW);
-		
-		// Bind normal buffer with a vbo entry.
-		//gl.glBindBuffer(GL_ARRAY_BUFFER, m_vbo[startingVBOIndex + 2]);
-		//FloatBuffer normalBuf = Buffers.newDirectFloatBuffer(nValues);
-		//gl.glBufferData(GL_ARRAY_BUFFER, normalBuf.limit() * 4, normalBuf, GL_STATIC_DRAW);
 	}
 	
 	private void setupSkyboxVertices(int startingVBOIndex)
@@ -1996,42 +1622,6 @@ public class Project3 extends JFrame implements GLEventListener, KeyListener
 		gl.glBufferData(GL_ARRAY_BUFFER, normalBuf.limit() * 4, normalBuf, GL_STATIC_DRAW);
 		
 		GLSLUtils.checkOpenGLError();
-	}
-	
-	private int loadCubeMap()
-	{
-		GL4 gl = (GL4) GLContext.getCurrentGL();
-		GLProfile glp = gl.getGLProfile();
-		Texture tex = new Texture(GL_TEXTURE_CUBE_MAP);
-		try
-		{
-			// get images from image files
-			TextureData tFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/top.jpg"), false, "jpg");
-			TextureData lFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/left.jpg"), false, "jpg");
-			TextureData fFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/front.jpg"), false, "jpg");
-			TextureData rFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/right.jpg"), false, "jpg");
-			TextureData bkFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/back.jpg"), false, "jpg");
-			TextureData btFile = TextureIO.newTextureData(glp, new File("textures/stormySkybox/bottom.jpg"), false, "jpg");
-			// attach textures to each face of the active texture
-			tex.updateImage(gl, rFile, GL_TEXTURE_CUBE_MAP_POSITIVE_X);
-			tex.updateImage(gl, lFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_X);
-			tex.updateImage(gl, tFile, GL_TEXTURE_CUBE_MAP_POSITIVE_Y);
-			tex.updateImage(gl, btFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y);
-			tex.updateImage(gl, fFile, GL_TEXTURE_CUBE_MAP_POSITIVE_Z);
-			tex.updateImage(gl, bkFile, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z);
-		}
-		catch(IOException | GLException e)
-		{
-			e.printStackTrace();
-		}
-		int[] textureIDs = new int[1];
-		gl.glGenTextures(1, textureIDs, 0);
-		int textureID = tex.getTextureObject();
-		// any texture parameter settings go here, such as...
-		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		gl.glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-		return textureID;
 	}
 	
 	private Matrix3D perspective(float fovy, float aspect, float n, float f)
