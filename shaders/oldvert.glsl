@@ -6,7 +6,7 @@ out vec2 tc;
 
 uniform mat4 mv_matrix;
 uniform mat4 proj_matrix;
-layout (binding=0) uniform sampler2D s;
+layout (binding=1) uniform sampler2D s;
 
 void main(void)
 {

@@ -34,6 +34,7 @@ void main(void)
     vec3 H = normalize(varyingHalfVector);
 
     float inShadow = textureProj(shTex, shadowCoordinates);
+    //inShadow = 0.0;
 
     float cosTheta = dot(L, N);
     float cosPhi = dot(H, N);
@@ -42,6 +43,6 @@ void main(void)
 	color = texColor * (globalAmbient + light.ambient);
 	if(inShadow != 0.0)
 	{
-	    color += (light.diffuse * max(cosTheta, 0.0)) + (light.specular * pow(max(cosPhi, 0.0), 3.0 * 3.0) * texColor);
+	    color += (light.diffuse * max(cosTheta, 0.0)) + (light.specular * pow(max(cosPhi, 0.0), 3.0 * 3.0));
 	}
 }
